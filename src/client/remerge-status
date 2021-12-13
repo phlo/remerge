@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+#
+# Get status of the current remerge request.
+#
+# usage: remerge-status
+
+# source client functions and environment
+. /usr/lib/remerge/client.sh || die "unable to source client configuration"
+
+# require root privileges
+require_root
+
+# attach to remote screen or print most recent log
+$REMERGE_SSH /bin/bash -c true "
+  screen -qrS $REMERGE_SCREEN && exit
+  . /etc/remerge/server.conf
+  cat \$REMERGE_DIR/$REMERGE_CLIENT/var/log/remerge.log
+"

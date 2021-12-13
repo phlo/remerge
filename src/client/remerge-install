@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+#
+# Install previously built binary packages.
+#
+# usage: remerge-install
+
+# source client functions and environment
+. /usr/lib/remerge/client.sh || die "unable to source client configuration"
+
+# require root privileges
+require_root
+
+# get last emerge command
+cmd=$( \
+$REMERGE_SSH << EOF
+  . /etc/remerge/server.conf
+  VARLIB="\$REMERGE_DIR/$REMERGE_CLIENT/var/lib/remerge"
+  grep -q done \$VARLIB/state \
+    && cat \$VARLIB/cmd \
+    || exit 1
+EOF
+) || die "unable to get most recent command"
+
+# install binaries
+${cmd/emerge /emerge -g }

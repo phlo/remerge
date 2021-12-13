@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+#
+# Mount the given client's chroot directories.
+#
+# usage: remerge-chroot-mount <client>
+
+# source server functions and environment
+. /usr/lib/remerge/server.sh $1 || die "unable to source server configuration"
+
+# require root privileges
+require_root
+
+# check mounted state file
+[ -f $REMERGE_MOUNTED_FILE ] && die "already mounted"
+
+# mount relevant system directories
+mount -o rbind /dev $REMERGE_CLIENT_DIR/dev || die "unable to mount /dev"
+mount -t proc none $REMERGE_CLIENT_DIR/proc || die "unable to mount /proc"
+mount -o bind /sys $REMERGE_CLIENT_DIR/sys || die "unable to mount /sys"
+
+# mount /tmp
+mount -o bind $REMERGE_TMP_DIR $REMERGE_CLIENT_DIR/tmp \
+  || die "unable to mount /tmp"
+
+# mount distfiles directory
+mount -o bind \
+  $(portageq distdir) \
+  $REMERGE_DISTDIR \
+    || die "unable to mount distfiles"
+
+# mount main ebuild repository
+repo=$(chroot $REMERGE_CLIENT_DIR portageq get_repo_path / gentoo)
+repo="${REMERGE_CLIENT_DIR}${repo}"
+mkdir -p $repo
+mount -o bind $(portageq get_repo_path / gentoo) $repo \
+  || die "unable to mount main repository"
+
+# copy resolv config
+cp /etc/resolv.conf $REMERGE_CLIENT_DIR/etc/resolv.conf \
+  || die "unable to copy resolv.conf"
+
+# set state
+touch $REMERGE_MOUNTED_FILE

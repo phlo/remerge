@@ -1,0 +1,143 @@
+#!/usr/bin/env bash
+#
+# Synchronizes the client's portage configuration.
+#
+# usage: remerge-sync
+
+# source client functions and environment
+. /usr/lib/remerge/client.sh || die "unable to source client configuration"
+
+# require root privileges
+require_root
+
+# source server configuration
+source_server_config || die "unable to source server configuration"
+
+# check if client is initialized
+$REMERGE_SSH [ -f $REMERGE_STATE_FILE ] || \
+  die "unknown client, use remerge-init to perform first time setup"
+
+# be paranoid and check configuration variables
+[ -z $REMERGE_CLIENT_DIR ] && die "missing REMERGE_CLIENT_DIR"
+
+# update CPU_FLAGS_X86
+make_conf=/etc/portage/make.conf
+if grep -q CPU_FLAGS_X86 $make_conf
+then
+  flags_cur=$(grep '^CPU_FLAGS_X86.*$' $make_conf | sed 's/.*"\(.*\)"/\1/g')
+  flags_new=$(cpuid2cpuflags | sed 's/CPU_FLAGS_X86: //g')
+  if [ "$flags_cur" != "$flags_new" ]
+  then
+    ebegin "updating CPU_FLAGS_X86"
+    sed -i "s|^CPU_FLAGS_X86.*$|CPU_FLAGS_X86=\"$flags_new\"|g" $make_conf
+    eend $? || die
+  fi
+fi
+
+# synchronize portage configuration
+ebegin "syncing /etc/portage"
+$REMERGE_SSH mkdir -p $REMERGE_CLIENT_DIR/etc
+rsync -aurz --delete \
+  /etc/portage/ \
+  $REMERGE_SERVER:$REMERGE_CLIENT_DIR/etc/portage
+eend $? || die
+
+# synchronize custom repositories
+for repo in $(portageq get_repos / | sed 's/gentoo//g')
+do
+  repodir=$(portageq get_repo_path / $repo)
+  ebegin "syncing $repodir"
+  rsync -aurz --delete \
+    $repodir/ \
+    $REMERGE_SERVER:${REMERGE_CLIENT_DIR}${repodir}
+  eend $? || die
+done
+
+# synchronize kernel symlink
+ebegin "syncing /usr/src/linux"
+rsync -au /usr/src/linux $REMERGE_SERVER:$REMERGE_CLIENT_DIR/usr/src \
+  || eend $? || die
+
+# verify kernel sources
+$REMERGE_SSH [ -d $REMERGE_CLIENT_DIR/usr/src/linux ] || remerge-chroot \
+  "source /etc/profile && env-update && emerge -a1 gentoo-sources"
+$REMERGE_SSH [ -d $REMERGE_CLIENT_DIR/usr/src/linux ]
+eend $? || die "missing kernel sources"
+
+# synchronize kernel config
+ebegin "syncing /usr/src/linux/.config"
+{
+  rsync -avu \
+    /usr/src/linux/.config \
+    $REMERGE_SERVER:$REMERGE_CLIENT_DIR/usr/src/linux/ \
+  || eend $? || die
+} | grep -q '\.config' && {
+  # prepare kernel sources
+  remerge-chroot "
+    source /etc/profile
+    env-update
+    cd /usr/src/linux
+    make oldconfig
+    make modules_prepare
+  "
+  eend $? || die
+}
+eend 0
+
+# write root's .bashrc
+ebegin "writing /root/.bashrc"
+echo "source /etc/profile" > /tmp/.bashrc
+cat ~/.bashrc >> /tmp/.bashrc
+echo >> /tmp/.bashrc
+cat >> /tmp/.bashrc << EOF
+# remerge
+PS1="($REMERGE_CLIENT) \$PS1"
+EOF
+scp -q /tmp/.bashrc $REMERGE_SERVER:$REMERGE_CLIENT_DIR/root/
+eend $? || die
+rm /tmp/.bashrc
+
+# update local gentoo repository
+ebegin "writing /etc/portage/repos.conf/gentoo.conf"
+repo=$(portageq get_repo_path / gentoo)
+repodir=$($REMERGE_SSH portageq get_repo_path / gentoo | sed 's/\r$//g') \
+  || eend $? || die
+mkdir -p /etc/portage/repos.conf
+cat > /etc/portage/repos.conf/gentoo.conf << EOF
+[DEFAULT]
+main-repo = gentoo
+
+[gentoo]
+location = $repo
+sync-type = rsync
+sync-uri = ssh://root@${REMERGE_SERVER}${repodir}
+sync-user = root
+auto-sync = yes
+EOF
+eend $? || die
+
+# write client's binhost config
+ebegin "writing /etc/portage/binrepos.conf/remerge.conf"
+mkdir -p /etc/portage/binrepos.conf
+cat > /etc/portage/binrepos.conf/remerge.conf << EOF
+[remerge]
+sync-uri = ssh://root@${REMERGE_SERVER}${REMERGE_CLIENT_DIR}/pkgs
+EOF
+eend $? || die
+
+# write excludes file
+ebegin "writing $REMERGE_EXCLUDE_FILE"
+. /etc/remerge/client.conf # REMERGE_EXCLUDE altered by server config
+$REMERGE_SSH "echo '$REMERGE_EXCLUDE' > $REMERGE_EXCLUDE_FILE"
+eend $? || die
+
+# write client architecture's native CFLAGS
+ebegin "writing $REMERGE_MARCH_FILE"
+$REMERGE_SSH << EOF
+  mkdir -p $REMERGE_VARLIB_DIR
+  echo $(resolve-march-native) > $REMERGE_MARCH_FILE
+EOF
+eend $? || die
+
+# perform server side adjustments to the client's portage configuration
+$REMERGE_SSH remerge-conf $REMERGE_CLIENT

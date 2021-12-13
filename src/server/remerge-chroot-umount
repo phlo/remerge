@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+#
+# Unmount the given client's chroot directories.
+#
+# usage: remerge-chroot-umount <client>
+
+# source server functions and environment
+. /usr/lib/remerge/server.sh $1 || die "unable to source server configuration"
+
+# require root privileges
+require_root
+
+# unmount everything unconditionally
+for repo in $(grep $REMERGE_CLIENT_DIR /proc/self/mounts | cut -d' ' -f2)
+do
+  umount -l $repo 2>/dev/null
+done
+rm -f $REMERGE_MOUNTED_FILE

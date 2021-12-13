@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+#
+# Enter the remote chroot environment or execute the given command line.
+#
+# usage: remerge-chroot [<cmd>]
+
+# source client functions and environment
+. /usr/lib/remerge/client.sh || die "unable to source client configuration"
+
+# require root privileges
+require_root
+
+# chroot into remote environment or execute command line
+[ ! -z "$*" ] && cmd="-c '$*'"
+$REMERGE_SSH /bin/bash -c true "
+  . /usr/lib/remerge/common.sh
+  . /etc/remerge/server.conf
+  remerge-chroot-mount $REMERGE_CLIENT || die
+  chroot \$REMERGE_DIR/$REMERGE_CLIENT /bin/bash $cmd
+  ret=\$?
+  remerge-chroot-umount $REMERGE_CLIENT
+  exit \$ret
+"

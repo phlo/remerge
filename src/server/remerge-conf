@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+#
+# Adjust the given client's portage configuration.
+#
+# usage: remerge-conf <client>
+
+# source server functions and environment
+. /usr/lib/remerge/server.sh $1 || die "unable to source server configuration"
+
+# configure the client's make.conf
+make_conf="$REMERGE_CLIENT_DIR/etc/portage/make.conf"
+
+ebegin "updating $make_conf"
+
+# assign <variable> <value>
+assign () {
+  grep -q "$1\=\"$2\"" $make_conf && return
+  ebegin "  $1"
+  grep -q "^$1" $make_conf \
+    && sed -i "s|^$1.*$|$1=\"$2\"|g" $make_conf \
+    || echo -e "\n$1=\"$2\"" >> $make_conf
+  eend $? || die
+}
+
+# CFLAGS
+if grep -q 'CFLAGS.*\-march\=native.*' $make_conf
+then
+  cflags="$(cat $REMERGE_VARLIB_DIR/march) \
+    $(grep ^CFLAGS $make_conf \
+      | cut -d'"' -f2 \
+      | sed 's/\-march\=native//g' \
+    )"
+  assign "CFLAGS" "$(echo $cflags)"
+fi
+
+# MAKEOPTS
+assign "MAKEOPTS" "-j$REMERGE_JOBS"
+
+# CONFIG_PROTECT
+assign "CONFIG_PROTECT" "-\*"
+
+# DISTDIR
+assign "DISTDIR" "${REMERGE_DISTDIR#$REMERGE_CLIENT_DIR}"
+mkdir -p $REMERGE_DISTDIR
+
+# PKGDIR
+assign "PKGDIR" "${REMERGE_PKGDIR#$REMERGE_CLIENT_DIR}"
+mkdir -p $REMERGE_PKGDIR
+
+eend $?
+
+# write state file
+echo configured > $REMERGE_STATE_FILE

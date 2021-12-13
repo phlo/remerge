@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+#
+# Initialize the client's remote chroot environment.
+#
+# usage: remerge-init
+
+# source client functions and environment
+. /usr/lib/remerge/client.sh || die "unable to source client configuration"
+
+# require root privileges
+require_root
+
+# source server configuration
+source_server_config || die "unable to source server configuration"
+
+# check if client has been initialized already
+$REMERGE_SSH [ -f $REMERGE_STATE_FILE ] && \
+  die "client already initialized"
+
+# exclude from system image
+excludes=(
+  "--exclude=/boot/*"
+  "--exclude=/dev/*"
+  "--exclude=/home/*"
+  "--exclude=/lib*/modules/*"
+  "--exclude=/media/*"
+  "--exclude=/mnt/*/*"
+  "--exclude=/proc/*"
+  "--exclude=/root/*"
+  "--exclude=/run/*"
+  "--exclude=/sys/*"
+  "--exclude=/tmp/*"
+  "--exclude=/usr/portage/*"
+  "--exclude=/usr/src/*"
+  "--exclude=/var/cache/binpkgs/*"
+  "--exclude=/var/cache/distfiles/*"
+  "--exclude=/var/db/repos/gentoo/*"
+  "--exclude=/var/lock/*"
+  "--exclude=/var/log/*"
+  "--exclude=/var/run/*"
+  "--exclude=/var/spool/*"
+  "--exclude=/var/tmp/*"
+  "--exclude=lost+found"
+)
+
+# create image
+archive="$REMERGE_CLIENT-$(date '+%Y%m%d').tar.xz"
+ebegin "zipping up base system"
+tar -cpPJ \
+    --ignore-failed-read \
+    --xattrs-include='*.*' \
+    --numeric-owner \
+    ${excludes[@]} \
+    -f /tmp/$archive /
+eend $? || die "unable to create image"
+
+# transfer image
+ebegin "transfering base system"
+scp /tmp/$archive $REMERGE_SERVER:$REMERGE_CLIENT_DIR
+eend $? || die "unable to transfer image"
+
+# extract image
+ebegin "extracting base system"
+untar="tar xpfJ $archive --xattrs-include='*.*' --numeric-owner"
+$REMERGE_SSH "cd $REMERGE_CLIENT_DIR && $untar"
+eend $? || die "unable to extract base system"
+
+# write state file
+ebegin "initializing state file"
+$REMERGE_SSH "echo initialized > $REMERGE_STATE_FILE"
+eend $? || die "unable to initialize state file"

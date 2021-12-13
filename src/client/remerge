@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+#
+# Main remerge script: a wrapper to emerge.
+#
+# usage: remerge <emerge-command>
+
+# source client functions and environment
+. /usr/lib/remerge/client.sh || die "unable to source client configuration"
+
+# require root privileges
+require_root
+
+# check if a session is running
+$REMERGE_SSH screen -ls | grep -q $REMERGE_SCREEN \
+  && die \
+    "a session is already running, use remerge-status to check it's progress"
+
+# synchronize portage configuration
+remerge-sync || die
+
+# build requested binary packages
+$REMERGE_SSH /bin/bash -c true "
+  . /etc/remerge/server.conf
+  screen -S $REMERGE_SCREEN \
+         -L -Logfile \$REMERGE_DIR/$REMERGE_CLIENT/var/log/remerge.log \
+         remerge-server $REMERGE_CLIENT $*
+"
