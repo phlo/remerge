@@ -15,7 +15,7 @@ source_server_config || die "unable to source server configuration"
 
 # check if client is initialized
 $REMERGE_SSH [ -f $REMERGE_STATE_FILE ] || \
-  die "unknown client, use remerge-init to perform first time setup"
+  die "unknown client, use 'remerge-init' to perform first time setup"
 
 # be paranoid and check configuration variables
 [ -z $REMERGE_CLIENT_DIR ] && die "missing REMERGE_CLIENT_DIR"
@@ -70,7 +70,7 @@ ebegin "syncing /usr/src/linux/.config"
   rsync -avu \
     /usr/src/linux/.config \
     $REMERGE_SERVER:$REMERGE_CLIENT_DIR/usr/src/linux/ \
-  || eend $? || die
+    || eend $? || die
 } | grep -q '\.config' && {
   # prepare kernel sources
   remerge-chroot "
@@ -87,6 +87,7 @@ eend 0
 # write root's .bashrc
 ebegin "writing /root/.bashrc"
 echo "source /etc/profile" > /tmp/.bashrc
+echo >> /tmp/.bashrc
 cat ~/.bashrc >> /tmp/.bashrc
 echo >> /tmp/.bashrc
 cat >> /tmp/.bashrc << EOF
@@ -133,10 +134,7 @@ eend $? || die
 
 # write client architecture's native CFLAGS
 ebegin "writing $REMERGE_MARCH_FILE"
-$REMERGE_SSH << EOF
-  mkdir -p $REMERGE_VARLIB_DIR
-  echo $(resolve-march-native) > $REMERGE_MARCH_FILE
-EOF
+$REMERGE_SSH "echo $(resolve-march-native) > $REMERGE_MARCH_FILE"
 eend $? || die
 
 # perform server side adjustments to the client's portage configuration

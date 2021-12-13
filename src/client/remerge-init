@@ -14,8 +14,7 @@ require_root
 source_server_config || die "unable to source server configuration"
 
 # check if client has been initialized already
-$REMERGE_SSH [ -f $REMERGE_STATE_FILE ] && \
-  die "client already initialized"
+$REMERGE_SSH [ -f $REMERGE_STATE_FILE ] && die "client already initialized"
 
 # exclude from system image
 excludes=(
@@ -41,6 +40,7 @@ excludes=(
   "--exclude=/var/spool/*"
   "--exclude=/var/tmp/*"
   "--exclude=lost+found"
+  "--exclude=.git"
 )
 
 # create image

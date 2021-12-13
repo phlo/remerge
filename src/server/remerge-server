@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Adjust the given client's portage configuration.
+# Build binary packages for the given client and 'emerge' command line.
 #
 # usage: remerge-server <client> <emerge-command>
 
