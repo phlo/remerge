@@ -20,20 +20,6 @@ $REMERGE_SSH [ -f $REMERGE_STATE_FILE ] || \
 # be paranoid and check configuration variables
 [ -z $REMERGE_CLIENT_DIR ] && die "missing REMERGE_CLIENT_DIR"
 
-# update CPU_FLAGS_X86
-make_conf=/etc/portage/make.conf
-if grep -q CPU_FLAGS_X86 $make_conf
-then
-  flags_cur=$(grep '^CPU_FLAGS_X86.*$' $make_conf | sed 's/.*"\(.*\)"/\1/g')
-  flags_new=$(cpuid2cpuflags | sed 's/CPU_FLAGS_X86: //g')
-  if [ "$flags_cur" != "$flags_new" ]
-  then
-    ebegin "updating CPU_FLAGS_X86"
-    sed -i "s|^CPU_FLAGS_X86.*$|CPU_FLAGS_X86=\"$flags_new\"|g" $make_conf
-    eend $? || die
-  fi
-fi
-
 # synchronize portage configuration
 ebegin "syncing /etc/portage"
 $REMERGE_SSH mkdir -p $REMERGE_CLIENT_DIR/etc

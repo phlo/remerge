@@ -18,6 +18,7 @@ mkdir -p $REMERGE_CLIENT_DIR
 
 # mounted state file
 REMERGE_MOUNTED_FILE="/run/remerge/$REMERGE_CLIENT.mounted"
+mkdir -p $(dirname $REMERGE_MOUNTED_FILE)
 
 # temporary directory
 REMERGE_TMP_DIR="/tmp/remerge/$REMERGE_CLIENT"
