@@ -20,10 +20,6 @@ mkdir -p $REMERGE_CLIENT_DIR
 REMERGE_MOUNTED_FILE="/run/remerge/$REMERGE_CLIENT.mounted"
 mkdir -p $(dirname $REMERGE_MOUNTED_FILE)
 
-# temporary directory
-REMERGE_TMP_DIR="/tmp/remerge/$REMERGE_CLIENT"
-mkdir -p $REMERGE_TMP_DIR
-
 # variable state directory
 REMERGE_VARLIB_DIR="$REMERGE_CLIENT_DIR/var/lib/remerge"
 mkdir -p $REMERGE_VARLIB_DIR

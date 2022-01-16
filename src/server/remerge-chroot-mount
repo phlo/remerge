@@ -25,8 +25,10 @@ mount -t proc none $REMERGE_CLIENT_DIR/proc || udie "unable to mount /proc"
 mount -o bind /sys $REMERGE_CLIENT_DIR/sys || udie "unable to mount /sys"
 
 # mount /tmp
-mount -o bind $REMERGE_TMP_DIR $REMERGE_CLIENT_DIR/tmp \
-  || udie "unable to mount /tmp"
+mount -o size=$REMERGE_TMP_SIZE,uid=portage,gid=portage,mode=775,nosuid,noatime,nodev -t tmpfs tmpfs $REMERGE_CLIENT_DIR/tmp \
+  || udie "unable to mount $REMERGE_CLIENT_DIR/tmp"
+mount -o bind,noatime $REMERGE_CLIENT_DIR/tmp $REMERGE_CLIENT_DIR/var/tmp \
+  || udie "unable to mount $REMERGE_CLIENT_DIR/var/tmp"
 
 # mount distfiles directory
 mount -o bind \
