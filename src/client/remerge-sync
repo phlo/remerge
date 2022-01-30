@@ -28,6 +28,13 @@ rsync -aurz --delete \
   $REMERGE_SERVER:$REMERGE_CLIENT_DIR/etc/portage
 eend $? || die
 
+# synchronize world file
+ebegin "syncing /var/lib/portage/world"
+rsync -au \
+  /var/lib/portage/world \
+  $REMERGE_SERVER:$REMERGE_CLIENT_DIR/var/lib/portage/
+eend $? || die
+
 # synchronize custom repositories
 for repo in $(portageq get_repos / | sed 's/gentoo//g')
 do
@@ -70,6 +77,13 @@ ebegin "syncing /usr/src/linux/.config"
 }
 eend 0
 
+# cleanup kernel sources
+ebegin "cleaning up kernel sources"
+remerge-chroot '
+  rm -rf $(ls -d /usr/src/linux-* | sed "s|$(readlink -f /usr/src/linux)||g")
+'
+eend $?
+
 # write root's .bashrc
 ebegin "writing /root/.bashrc"
 echo "source /etc/profile" > /tmp/.bashrc
@@ -80,7 +94,7 @@ cat >> /tmp/.bashrc << EOF
 # remerge
 PS1="($REMERGE_CLIENT) \$PS1"
 EOF
-scp -q /tmp/.bashrc $REMERGE_SERVER:$REMERGE_CLIENT_DIR/root/
+rsync -au /tmp/.bashrc $REMERGE_SERVER:$REMERGE_CLIENT_DIR/root/
 eend $? || die
 rm /tmp/.bashrc
 
