@@ -37,6 +37,14 @@ eend $? \
  || state=failed
 echo $state > $REMERGE_STATE_FILE
 
+# cleanup after world update
+if [ $state = done ] && [[ $* =~ (^| )@?world($| ) ]]
+then
+  ebegin "running 'emerge --depclean'"
+  chroot $REMERGE_CLIENT_DIR /bin/bash -c 'emerge --depclean'
+  eend $?
+fi
+
 # unmount chroot directories
 ebegin "unmounting chroot directories"
 remerge-chroot-umount $REMERGE_CLIENT
@@ -44,8 +52,5 @@ eend $? || die
 
 # display install instructions if emerge succeeded
 [ $state = done ] \
-  && einfo run \
-    \'$(cat $REMERGE_CMD_FILE | sed 's/emerge/emerge -g/g')\' \
-    or \
-    \'remerge-install\' to install locally \
-  || exit 1
+  && einfo run \'$(cat $REMERGE_CMD_FILE | sed 's/emerge/emerge -g/g')\' \
+           or \'remerge-install\' to install locally || exit 1
