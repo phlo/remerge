@@ -20,9 +20,10 @@ udie () {
 }
 
 # mount relevant system directories
-mount -o rbind /dev $REMERGE_CLIENT_DIR/dev || udie "unable to mount /dev"
 mount -t proc none $REMERGE_CLIENT_DIR/proc || udie "unable to mount /proc"
-mount -o bind /sys $REMERGE_CLIENT_DIR/sys || udie "unable to mount /sys"
+mount -o rbind /sys $REMERGE_CLIENT_DIR/sys || udie "unable to mount /sys"
+mount -o rbind /dev $REMERGE_CLIENT_DIR/dev || udie "unable to mount /dev"
+mount -o bind /run $REMERGE_CLIENT_DIR/run || udie "unable to mount /run"
 
 # mount /tmp
 mount -o size=$REMERGE_TMP_SIZE,uid=portage,gid=portage,mode=775,nosuid,noatime,nodev -t tmpfs tmpfs $REMERGE_CLIENT_DIR/tmp \
